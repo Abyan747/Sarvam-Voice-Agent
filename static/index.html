@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sunniye Samjhiye — Indic Healthcare Copilot</title>
+  <meta name="description" content="AI-powered Indic healthcare copilot for OPD intake and discharge decoding using Sarvam AI APIs." />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- Background ambient orbs -->
+<div class="bg-orbs"></div>
+
+<div id="app">
+
+  <!-- ─── Header ──────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="app-logo">
+      <div class="icon">🏥</div>
+      <div>
+        <h1>Sunniye, Samjhiye</h1>
+        <p>Indic Healthcare Copilot</p>
+      </div>
+    </div>
+    <div class="powered-badge">⚡ Powered by Sarvam AI</div>
+  </header>
+
+  <!-- ─── Tabs ─────────────────────────────────────────────────────── -->
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"
+      id="tab-opd" onclick="switchTab('opd')">
+      🎙️ OPD Intake — <em>Sunniye, Samjhiye</em>
+    </button>
+    <button class="tab-btn" role="tab" aria-selected="false"
+      id="tab-discharge" onclick="switchTab('discharge')">
+      📋 Discharge Decoder
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TAB 1: OPD INTAKE                                             -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-opd-content" class="tab-content active">
+
+    <!-- Step tracker -->
+    <div class="step-row">
+      <div class="step active" id="step-record"><span class="step-dot"></span>Record Symptoms</div>
+      <div class="step" id="step-scan"><span class="step-dot"></span>Scan Prescription</div>
+      <div class="step" id="step-generate"><span class="step-dot"></span>Generate Note</div>
+      <div class="step" id="step-result"><span class="step-dot"></span>Clinical Note</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background: rgba(79,159,255,0.12);">🎙️</div>
+        <div>
+          <h2>Patient Symptom Recording</h2>
+          <p>Speak in any Indic language — Hindi, Tamil, Bengali, Telugu & more</p>
+        </div>
+      </div>
+
+      <!-- Language + Inputs -->
+      <div class="lang-row">
+        <label for="opd-lang">Patient Language:</label>
+        <select class="lang-select" id="opd-lang">
+          <option value="hi-IN">🇮🇳 Hindi</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="te-IN">Telugu</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="gu-IN">Gujarati</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="pa-IN">Punjabi</option>
+          <option value="od-IN">Odia</option>
+          <option value="en-IN">English (Indian)</option>
+        </select>
+      </div>
+
+      <div class="input-grid">
+
+        <!-- Audio Recorder -->
+        <div class="recorder-panel">
+          <div class="record-timer" id="recordTimer">00:00</div>
+          <button class="record-btn" id="recordBtn" onclick="toggleRecording()" title="Click to record">
+            🎙️
+          </button>
+          <div class="record-status" id="recordStatus">Click to start recording</div>
+
+          <div class="waveform-container">
+            <canvas id="waveformCanvas"></canvas>
+          </div>
+
+          <div class="transcript-chip" id="transcriptDisplay">
+            Transcript will appear here after recording...
+          </div>
+        </div>
+
+        <!-- Prescription Upload -->
+        <div>
+          <div class="upload-panel" id="rxUploadPanel"
+            onclick="document.getElementById('rxFileInput').click()"
+            ondragover="dragOver(event, 'rxUploadPanel')"
+            ondragleave="dragLeave('rxUploadPanel')"
+            ondrop="dropFile(event, 'rxFileInput', 'rxPreview')">
+            <div class="upload-icon">💊</div>
+            <p>Upload Prescription Photo</p>
+            <span>JPG / PNG / HEIC • Click or Drag & Drop</span>
+            <img class="upload-preview" id="rxPreview" alt="Prescription preview" />
+          </div>
+          <input type="file" id="rxFileInput" accept="image/*" style="display:none"
+            onchange="previewFile('rxFileInput', 'rxPreview', 'rxUploadPanel')" />
+        </div>
+      </div>
+
+      <!-- Generate button -->
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button class="btn-primary" id="generateNoteBtn" onclick="generateClinicalNote()">
+          <span>⚡ Generate Clinical Note</span>
+        </button>
+        <button class="btn-secondary" onclick="resetOPD()">🔄 Reset</button>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-indicator" id="noteLoading">
+        <div class="spinner"></div>
+        <span id="noteLoadingText">Processing with Sarvam AI…</span>
+      </div>
+    </div>
+
+    <!-- ─── OPD Note Output ───────────────────────────────────── -->
+    <div class="note-output" id="noteOutput">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">📋 Clinical Note Generated</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="note-grid">
+        <!-- Facts Column -->
+        <div class="note-col facts">
+          <div class="note-col-header blue">🔵 Patient Narrative (Facts)</div>
+          <div id="factsContainer"><!-- JS renders here --></div>
+        </div>
+        <!-- Hypotheses Column -->
+        <div class="note-col hypotheses">
+          <div class="note-col-header amber">🟡 Clinical Interpretation (AI)</div>
+          <div id="hypothesesContainer"><!-- JS renders here --></div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-box">
+        <strong>🩺 Clinical Summary</strong>
+        <span id="summaryText"></span>
+      </div>
+
+      <!-- Recommended action -->
+      <div class="summary-box" style="margin-top:12px; border-left-color: var(--amber);">
+        <strong>📌 Recommended Action</strong>
+        <span id="recommendedAction"></span>
+      </div>
+
+      <!-- Extracted Prescription -->
+      <div id="rxDataSection" style="margin-top:12px; display:none;">
+        <div class="summary-box" style="border-left-color: var(--purple);">
+          <strong>💊 Extracted Prescription Data</strong>
+          <div id="rxDataList" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TAB 2: DISCHARGE DECODER                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-discharge-content" class="tab-content">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background: rgba(16,185,129,0.12);">📋</div>
+        <div>
+          <h2>Discharge Decoder</h2>
+          <p>Upload a discharge summary — we'll explain it in your patient's language</p>
+        </div>
+      </div>
+
+      <div class="lang-row">
+        <label for="discharge-lang">Patient's Language:</label>
+        <select class="lang-select" id="discharge-lang">
+          <option value="hi-IN">🇮🇳 Hindi</option>
+          <option value="ta-IN">Tamil</option>
+          <option value="te-IN">Telugu</option>
+          <option value="bn-IN">Bengali</option>
+          <option value="mr-IN">Marathi</option>
+          <option value="gu-IN">Gujarati</option>
+          <option value="kn-IN">Kannada</option>
+          <option value="ml-IN">Malayalam</option>
+          <option value="pa-IN">Punjabi</option>
+          <option value="od-IN">Odia</option>
+          <option value="en-IN">English (Indian)</option>
+        </select>
+      </div>
+
+      <div class="upload-panel" id="dischargeUploadPanel" style="max-width:480px;"
+        onclick="document.getElementById('dischargeFileInput').click()"
+        ondragover="dragOver(event, 'dischargeUploadPanel')"
+        ondragleave="dragLeave('dischargeUploadPanel')"
+        ondrop="dropFile(event, 'dischargeFileInput', 'dischargePreview')">
+        <div class="upload-icon">🏥</div>
+        <p>Upload Discharge Summary</p>
+        <span>Photo or scanned PDF image • JPG / PNG</span>
+        <img class="upload-preview" id="dischargePreview" alt="Discharge preview" />
+      </div>
+      <input type="file" id="dischargeFileInput" accept="image/*" style="display:none"
+        onchange="previewFile('dischargeFileInput', 'dischargePreview', 'dischargeUploadPanel')" />
+
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:20px;">
+        <button class="btn-primary" id="decodeBtn" onclick="decodeDischarge()">
+          <span>🔍 Decode & Explain</span>
+        </button>
+        <button class="btn-secondary" onclick="resetDischarge()">🔄 Reset</button>
+      </div>
+
+      <div class="loading-indicator" id="dischargeLoading">
+        <div class="spinner"></div>
+        <span id="dischargeLoadingText">Digitising document with Sarvam Vision…</span>
+      </div>
+    </div>
+
+    <!-- ─── Discharge Output ─────────────────────────────────────── -->
+    <div class="discharge-output" id="dischargeOutput">
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">✅ Discharge Summary Decoded</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Diagnosis -->
+      <div class="discharge-section diagnosis">
+        <h3>🔵 What Happened (Diagnosis)</h3>
+        <p id="diagnosisText" style="font-size:14px; color:var(--text-secondary); line-height:1.7;"></p>
+        <p id="diagnosisTranslated" style="display:none; margin-top:10px; font-size:14px; color:var(--text-primary); line-height:1.7; font-style:italic; border-top:1px solid var(--border); padding-top:10px;"></p>
+      </div>
+
+      <!-- Recovery Plan -->
+      <div class="discharge-section checklist">
+        <h3>✅ 7-Day Recovery Plan</h3>
+        <div id="recoveryList"></div>
+      </div>
+
+      <!-- Medications -->
+      <div class="discharge-section meds">
+        <h3>💊 Medications</h3>
+        <table class="med-table">
+          <thead>
+            <tr>
+              <th>Medicine</th>
+              <th>Dose</th>
+              <th>Timing</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="medTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Red Flags -->
+      <div class="discharge-section redflags">
+        <h3>🚨 Red-Flag Symptoms — Go to Hospital Immediately</h3>
+        <div id="redFlagList"></div>
+      </div>
+
+      <!-- TTS Audio -->
+      <div class="discharge-section" style="border-top:3px solid var(--green);">
+        <h3>🔊 Listen in Your Language</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">Powered by Sarvam Bulbul v3 TTS</p>
+        <div class="audio-section">
+          <button class="play-btn" id="speakDiagnosisBtn" onclick="speakDischarge()">
+            🔊 Play in <span id="speakLangLabel">Hindi</span>
+          </button>
+          <audio id="dischargeAudio" controls style="display:none;"></audio>
+        </div>
+      </div>
+
+    </div><!-- /discharge-output -->
+
+  </div><!-- /tab-discharge-content -->
+
+</div><!-- /app -->
+
+<!-- ─── Error Toast ──────────────────────────────────────────────── -->
+<div class="toast" id="errorToast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
